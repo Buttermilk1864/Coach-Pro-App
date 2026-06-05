@@ -24,10 +24,17 @@
         .btn-secondary { background: #e0e0e0; color: black; }
         
         /* Grid Layouts */
-        .grid-header { display: grid; grid-template-columns: 2fr 1fr repeat(9, 1fr); gap: 5px; font-weight: bold; margin-bottom: 10px; }
-        .grid-row { display: grid; grid-template-columns: 2fr 1fr repeat(9, 1fr); gap: 5px; margin-bottom: 5px; align-items: center; }
-        input[type="text"], input[type="number"], select { padding: 10px; border: 1px solid #ccc; border-radius: 4px; width: 100%; box-sizing: border-box; font-size: 16px; }
+        .grid-header { display: grid; grid-template-columns: 2fr 1fr repeat(9, 1fr); gap: 10px; font-weight: bold; margin-bottom: 10px; text-align: center; }
+        .grid-row { display: grid; grid-template-columns: 2fr 1fr repeat(9, 1fr); gap: 10px; margin-bottom: 10px; align-items: center; background: #fafafa; padding: 10px; border-radius: 8px; border: 1px solid #eee; }
+        input[type="text"], select { padding: 10px; border: 1px solid #ccc; border-radius: 4px; width: 100%; box-sizing: border-box; font-size: 16px; }
         
+        /* Custom iPad Sliders */
+        input[type="range"] { -webkit-appearance: none; width: 100%; background: transparent; margin-top: 8px; }
+        input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; height: 24px; width: 24px; border-radius: 50%; background: var(--primary); cursor: pointer; margin-top: -10px; box-shadow: 0 2px 4px rgba(0,0,0,0.3); }
+        input[type="range"]::-webkit-slider-runnable-track { width: 100%; height: 6px; cursor: pointer; background: #ddd; border-radius: 3px; }
+        .slider-cell { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .slider-val { font-size: 18px; font-weight: bold; color: var(--primary); }
+
         /* Game Day Layout */
         .action-bar { display: flex; justify-content: space-between; align-items: center; background: var(--light); padding: 15px; border-radius: 8px; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
         .diamond-container { display: flex; flex-direction: column; gap: 20px; }
@@ -60,12 +67,13 @@
         <div class="tab" onclick="switchTab('history')">📚 History</div>
     </div>
 
+    <!-- TAB 1: ROSTER -->
     <div id="roster" class="content active">
         <h2>Manage Roster</h2>
         <div style="overflow-x: auto;">
-            <div style="min-width: 800px;">
+            <div style="min-width: 1000px;">
                 <div class="grid-header">
-                    <div>Player Name</div><div>Active</div>
+                    <div style="text-align: left;">Player Name</div><div>Active</div>
                     <div>P</div><div>C</div><div>1B</div><div>2B</div><div>3B</div><div>SS</div><div>LF</div><div>CF</div><div>RF</div>
                 </div>
                 <div id="roster-grid"></div>
@@ -75,6 +83,7 @@
         <button class="btn-primary" style="margin-top: 20px; float: right;" onclick="saveRoster()">💾 Save Roster</button>
     </div>
 
+    <!-- TAB 2: STARTING LINEUP -->
     <div id="lineup" class="content">
         <h2>Set Starting Lineup</h2>
         <div id="start-dropdowns" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px;"></div>
@@ -83,6 +92,7 @@
         </div>
     </div>
 
+    <!-- TAB 3: GAME DAY -->
     <div id="game" class="content">
         <div class="action-bar">
             <div><h2 style="margin:0; border:none;">Inning: <span id="inning-display">1</span></h2></div>
@@ -136,6 +146,7 @@
         </div>
     </div>
 
+    <!-- TAB 4: HISTORY -->
     <div id="history" class="content">
         <h2>Saved Games</h2>
         <div style="display: flex; gap: 20px; flex-wrap: wrap;">
@@ -161,7 +172,6 @@
         if (saved) {
             state = JSON.parse(saved);
         } else {
-            // Default Demo Roster
             for(let i=1; i<=12; i++) {
                 state.roster[`Player_${i}`] = { Active: true, P: 5, C: 5, '1B': 5, '2B': 5, '3B': 5, SS: 5, LF: 5, CF: 5, RF: 5 };
                 state.benchCounts[`Player_${i}`] = 0;
@@ -182,7 +192,7 @@
         event.target.classList.add('active');
     }
 
-    // --- TAB 1: ROSTER ---
+    // --- TAB 1: ROSTER (Upgraded with Touch Sliders) ---
     function renderRoster() {
         const grid = document.getElementById('roster-grid');
         grid.innerHTML = '';
@@ -190,11 +200,21 @@
             let d = state.roster[p];
             let row = document.createElement('div');
             row.className = 'grid-row';
-            let html = `<input type="text" value="${p}" onchange="updatePlayerName('${p}', this.value)">
-                        <input type="checkbox" ${d.Active ? 'checked' : ''} onchange="updatePlayerStat('${p}', 'Active', this.checked)">`;
+            
+            // Name and Active Checkbox
+            let html = `<div><input type="text" value="${p}" onchange="updatePlayerName('${p}', this.value)"></div>
+                        <div style="text-align: center;"><input type="checkbox" style="transform: scale(1.5);" ${d.Active ? 'checked' : ''} onchange="updatePlayerStat('${p}', 'Active', this.checked)"></div>`;
+            
+            // Touch Sliders for Positions
             POSITIONS.forEach(pos => {
-                html += `<input type="number" min="0" max="10" value="${d[pos]}" onchange="updatePlayerStat('${p}', '${pos}', parseInt(this.value)||0)">`;
+                html += `
+                <div class="slider-cell">
+                    <div class="slider-val">${d[pos]}</div>
+                    <input type="range" min="0" max="9" value="${d[pos]}" 
+                        oninput="this.previousElementSibling.innerText = this.value; updatePlayerStat('${p}', '${pos}', parseInt(this.value)||0)">
+                </div>`;
             });
+            
             row.innerHTML = html;
             grid.appendChild(row);
         });
@@ -217,7 +237,13 @@
     }
 
     function updatePlayerStat(player, stat, val) { state.roster[player][stat] = val; }
-    function saveRoster() { saveData(); renderLineupDropdowns(); alert('Roster Saved!'); }
+    
+    function saveRoster() { 
+        saveData(); 
+        renderLineupDropdowns(); 
+        alert('Roster Saved to iPad Memory!'); 
+    }
+    
     function getActivePlayers() { return Object.keys(state.roster).filter(p => state.roster[p].Active); }
 
     // --- TAB 2: LINEUP ---
@@ -253,7 +279,7 @@
         document.querySelectorAll('.tab')[1].classList.remove('active');
     }
 
-    // --- TAB 3: GAME DAY LOGIC (Greedy Algorithm for JS) ---
+    // --- TAB 3: GAME DAY LOGIC ---
     function getBench() {
         let fielded = Object.values(state.onField).map(d => d.player);
         return getActivePlayers().filter(p => !fielded.includes(p));
@@ -262,8 +288,6 @@
     function calculateOptimalLineup(pitcherId) {
         let lineup = { 'P': { player: pitcherId, skill: state.roster[pitcherId]['P'] } };
         let available = getActivePlayers().filter(p => p !== pitcherId);
-        
-        // Priority order for assigning positions (up the middle first)
         let posOrder = ['C', 'SS', 'CF', '2B', '1B', '3B', 'LF', 'RF'];
         
         posOrder.forEach(pos => {
@@ -273,7 +297,6 @@
                 if(skill === 0) return; 
                 let sat = state.benchCounts[p] || 0;
                 let forced = sat >= state.maxBench;
-                // Score = Skill + Bench Bonus
                 let score = skill + (sat * 15) + (forced ? 5000 : 0);
                 if(score > bestScore) { bestScore = score; bestP = p; }
             });
@@ -308,8 +331,6 @@
     // --- GAME UI UPDATES ---
     function updateGameUI() {
         document.getElementById('inning-display').innerText = state.inning;
-        
-        // Update Pitcher Dropdown
         let pSelect = document.getElementById('pitcher-select');
         let currentP = state.onField['P'] ? state.onField['P'].player : '';
         pSelect.innerHTML = '';
@@ -320,7 +341,6 @@
             pSelect.appendChild(opt);
         });
 
-        // Update Field Nodes
         POSITIONS.forEach(pos => {
             let node = document.getElementById(`pos-${pos}`);
             if(state.onField[pos]) {
@@ -338,7 +358,6 @@
             }
         });
 
-        // Update Bench
         let benchDiv = document.getElementById('bench-list');
         benchDiv.innerHTML = '';
         getBench().forEach(p => {
@@ -355,7 +374,6 @@
             benchDiv.appendChild(btn);
         });
 
-        // Update History Tracking
         let histDiv = document.getElementById('history-bench-list');
         histDiv.innerHTML = '';
         getActivePlayers().forEach(p => {
@@ -363,7 +381,6 @@
             if(sat > 0) histDiv.innerHTML += `<div style="padding: 5px; background: #ffebee; border: 1px solid #ffcdd2; margin: 2px 0; border-radius: 4px; color: #c62828; font-weight: bold;">${p} (Sat: ${sat})</div>`;
         });
 
-        // Update Log
         document.getElementById('game-log').innerText = state.log.slice().reverse().join('\n\n');
     }
 
