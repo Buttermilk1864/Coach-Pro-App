@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Baseball Coach Pro</title>
+    <style>
+        :root { --primary: #4CAF50; --danger: #f44336; --warning: #ff9800; --dark: #333; --light: #f4f4f4; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 0; background: #fff; color: var(--dark); -webkit-tap-highlight-color: transparent; }
+        
+        /* Tabs */
+        .tab-bar { display: flex; background: var(--dark); color: white; position: sticky; top: 0; z-index: 100; overflow-x: auto; }
+        .tab { padding: 15px 20px; cursor: pointer; white-space: nowrap; font-weight: bold; flex: 1; text-align: center; }
+        .tab.active { background: var(--primary); }
+        .content { display: none; padding: 20px; }
+        .content.active { display: block; }
+        
+        /* Typography & Buttons */
+        h2 { margin-top: 0; border-bottom: 2px solid var(--light); padding-bottom: 10px; }
+        button { padding: 12px 20px; border: none; border-radius: 6px; font-size: 16px; font-weight: bold; cursor: pointer; margin: 5px; }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-danger { background: var(--danger); color: white; }
+        .btn-warning { background: var(--warning); color: white; }
+        .btn-secondary { background: #e0e0e0; color: black; }
+        
+        /* Grid Layouts */
+        .grid-header { display: grid; grid-template-columns: 2fr 1fr repeat(9, 1fr); gap: 5px; font-weight: bold; margin-bottom: 10px; }
+        .grid-row { display: grid; grid-template-columns: 2fr 1fr repeat(9, 1fr); gap: 5px; margin-bottom: 5px; align-items: center; }
+        input[type="text"], input[type="number"], select { padding: 10px; border: 1px solid #ccc; border-radius: 4px; width: 100%; box-sizing: border-box; font-size: 16px; }
+        
+        /* Game Day Layout */
+        .action-bar { display: flex; justify-content: space-between; align-items: center; background: var(--light); padding: 15px; border-radius: 8px; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
+        .diamond-container { display: flex; flex-direction: column; gap: 20px; }
+        @media(min-width: 800px) { .diamond-container { flex-direction: row; } }
+        
+        .field { flex: 2; background: #4CAF50; border-radius: 10px; padding: 20px; position: relative; min-height: 400px; display: grid; grid-template-rows: repeat(4, 1fr); gap: 10px; }
+        .field-row { display: flex; justify-content: space-around; align-items: center; width: 100%; }
+        
+        .player-node { background: white; padding: 10px; border-radius: 8px; text-align: center; font-size: 14px; font-weight: bold; box-shadow: 0 4px 6px rgba(0,0,0,0.3); cursor: pointer; width: 80px; }
+        .player-node.pitcher { border: 3px solid gold; }
+        .player-node.selected { background: var(--warning); color: white; }
+        .player-node.empty { background: rgba(255,255,255,0.5); box-shadow: none; color: #555; }
+        
+        .bench-area { flex: 1; display: flex; flex-direction: column; gap: 10px; }
+        .bench-card { background: var(--light); padding: 15px; border-radius: 8px; border: 1px solid #ddd; }
+        .bench-btn { width: 100%; margin: 5px 0; display: block; }
+        .bench-btn.highlight { background: var(--primary); color: white; }
+        
+        /* History */
+        .log-box { background: var(--light); padding: 15px; border-radius: 8px; font-family: monospace; white-space: pre-wrap; height: 150px; overflow-y: auto; border: 1px solid #ccc; }
+        .history-item { background: var(--light); padding: 15px; border-radius: 8px; margin-bottom: 10px; cursor: pointer; border: 1px solid #ddd; }
+    </style>
+</head>
+<body>
+
+    <div class="tab-bar">
+        <div class="tab active" onclick="switchTab('roster')">📋 Roster</div>
+        <div class="tab" onclick="switchTab('lineup')">🏁 Lineup</div>
+        <div class="tab" onclick="switchTab('game')">⚾ Game Day</div>
+        <div class="tab" onclick="switchTab('history')">📚 History</div>
+    </div>
+
+    <div id="roster" class="content active">
+        <h2>Manage Roster</h2>
+        <div style="overflow-x: auto;">
+            <div style="min-width: 800px;">
+                <div class="grid-header">
+                    <div>Player Name</div><div>Active</div>
+                    <div>P</div><div>C</div><div>1B</div><div>2B</div><div>3B</div><div>SS</div><div>LF</div><div>CF</div><div>RF</div>
+                </div>
+                <div id="roster-grid"></div>
+            </div>
+        </div>
+        <button class="btn-primary" style="margin-top: 20px;" onclick="addPlayerRow()">➕ Add Player</button>
+        <button class="btn-primary" style="margin-top: 20px; float: right;" onclick="saveRoster()">💾 Save Roster</button>
+    </div>
+
+    <div id="lineup" class="content">
+        <h2>Set Starting Lineup</h2>
+        <div id="start-dropdowns" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px;"></div>
+        <div style="margin-top: 30px; text-align: center;">
+            <button class="btn-primary" style="padding: 15px 30px; font-size: 18px;" onclick="lockStartingLineup()">✅ Lock Lineup & Play Ball!</button>
+        </div>
+    </div>
+
+    <div id="game" class="content">
+        <div class="action-bar">
+            <div><h2 style="margin:0; border:none;">Inning: <span id="inning-display">1</span></h2></div>
+            <div>
+                <label>Sub Pitcher:</label>
+                <select id="pitcher-select" style="width: auto; display: inline-block; margin-left: 10px;"></select>
+                <button class="btn-secondary" onclick="executePitchingChange()">🔄 Execute</button>
+            </div>
+            <div>
+                <button class="btn-warning" onclick="advanceInning()">⏩ Advance Inning</button>
+                <button class="btn-danger" onclick="endGame()">🛑 End Game</button>
+            </div>
+        </div>
+
+        <div class="diamond-container">
+            <div class="field">
+                <div class="field-row">
+                    <div id="pos-LF" class="player-node" onclick="handleFieldClick('LF')">LF<br>--</div>
+                    <div id="pos-CF" class="player-node" onclick="handleFieldClick('CF')">CF<br>--</div>
+                    <div id="pos-RF" class="player-node" onclick="handleFieldClick('RF')">RF<br>--</div>
+                </div>
+                <div class="field-row" style="margin-top: 20px;">
+                    <div id="pos-SS" class="player-node" onclick="handleFieldClick('SS')">SS<br>--</div>
+                    <div id="pos-2B" class="player-node" onclick="handleFieldClick('2B')">2B<br>--</div>
+                </div>
+                <div class="field-row" style="margin-top: 20px;">
+                    <div id="pos-3B" class="player-node" onclick="handleFieldClick('3B')">3B<br>--</div>
+                    <div id="pos-P" class="player-node pitcher" onclick="handleFieldClick('P')">P<br>--</div>
+                    <div id="pos-1B" class="player-node" onclick="handleFieldClick('1B')">1B<br>--</div>
+                </div>
+                <div class="field-row" style="margin-top: 20px;">
+                    <div id="pos-C" class="player-node" onclick="handleFieldClick('C')">C<br>--</div>
+                </div>
+            </div>
+
+            <div class="bench-area">
+                <div class="bench-card">
+                    <h3 style="margin-top:0;">Current Bench</h3>
+                    <p style="font-size: 12px; color: #666; margin-top:-10px;">Tap a field player to sub</p>
+                    <div id="bench-list"></div>
+                </div>
+                <div class="bench-card">
+                    <h3 style="margin-top:0;">Recent Moves</h3>
+                    <div id="game-log" class="log-box"></div>
+                </div>
+                <div class="bench-card">
+                    <h3 style="margin-top:0; color: var(--danger);">Game History (Sat)</h3>
+                    <div id="history-bench-list" style="font-size: 14px;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="history" class="content">
+        <h2>Saved Games</h2>
+        <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+            <div style="flex: 1; min-width: 300px;">
+                <div id="saved-games-list"></div>
+            </div>
+            <div style="flex: 2; min-width: 300px;">
+                <div id="history-detail" class="log-box" style="height: 500px;">Select a game to view details.</div>
+                <button class="btn-danger" style="margin-top: 10px; display: none;" id="btn-delete-game" onclick="deleteSelectedGame()">🗑️ Delete Game</button>
+            </div>
+        </div>
+    </div>
+
+<script>
+    // --- CONSTANTS & STATE ---
+    const POSITIONS = ["P", "C", "1B", "2B", "3B", "SS", "LF", "CF", "RF"];
+    const SPOTS = ["P", "C", "1B", "2B", "3B", "SS", "LF", "CF", "RF", "EH1", "EH2", "EH3"];
+    let state = { roster: {}, onField: {}, benchCounts: {}, inning: 1, log: [], history: [], selectedSubOut: null, maxBench: 2 };
+
+    // --- INITIALIZATION ---
+    function init() {
+        let saved = localStorage.getItem('coachProState');
+        if (saved) {
+            state = JSON.parse(saved);
+        } else {
+            // Default Demo Roster
+            for(let i=1; i<=12; i++) {
+                state.roster[`Player_${i}`] = { Active: true, P: 5, C: 5, '1B': 5, '2B': 5, '3B': 5, SS: 5, LF: 5, CF: 5, RF: 5 };
+                state.benchCounts[`Player_${i}`] = 0;
+            }
+        }
+        renderRoster();
+        renderLineupDropdowns();
+        updateGameUI();
+        renderHistoryList();
+    }
+
+    function saveData() { localStorage.setItem('coachProState', JSON.stringify(state)); }
+
+    function switchTab(tabId) {
+        document.querySelectorAll('.content').forEach(c => c.classList.remove('active'));
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.getElementById(tabId).classList.add('active');
+        event.target.classList.add('active');
+    }
+
+    // --- TAB 1: ROSTER ---
+    function renderRoster() {
+        const grid = document.getElementById('roster-grid');
+        grid.innerHTML = '';
+        Object.keys(state.roster).forEach(p => {
+            let d = state.roster[p];
+            let row = document.createElement('div');
+            row.className = 'grid-row';
+            let html = `<input type="text" value="${p}" onchange="updatePlayerName('${p}', this.value)">
+                        <input type="checkbox" ${d.Active ? 'checked' : ''} onchange="updatePlayerStat('${p}', 'Active', this.checked)">`;
+            POSITIONS.forEach(pos => {
+                html += `<input type="number" min="0" max="10" value="${d[pos]}" onchange="updatePlayerStat('${p}', '${pos}', parseInt(this.value)||0)">`;
+            });
+            row.innerHTML = html;
+            grid.appendChild(row);
+        });
+    }
+
+    function addPlayerRow() {
+        let newName = `New_Player_${Object.keys(state.roster).length + 1}`;
+        state.roster[newName] = { Active: true, P: 0, C: 0, '1B': 0, '2B': 0, '3B': 0, SS: 0, LF: 0, CF: 0, RF: 0 };
+        state.benchCounts[newName] = 0;
+        renderRoster();
+    }
+
+    function updatePlayerName(oldName, newName) {
+        if(oldName === newName || !newName) return;
+        state.roster[newName] = state.roster[oldName];
+        delete state.roster[oldName];
+        state.benchCounts[newName] = state.benchCounts[oldName];
+        delete state.benchCounts[oldName];
+        renderRoster();
+    }
+
+    function updatePlayerStat(player, stat, val) { state.roster[player][stat] = val; }
+    function saveRoster() { saveData(); renderLineupDropdowns(); alert('Roster Saved!'); }
+    function getActivePlayers() { return Object.keys(state.roster).filter(p => state.roster[p].Active); }
+
+    // --- TAB 2: LINEUP ---
+    function renderLineupDropdowns() {
+        const container = document.getElementById('start-dropdowns');
+        container.innerHTML = '';
+        let active = getActivePlayers();
+        SPOTS.forEach(spot => {
+            let div = document.createElement('div');
+            let html = `<strong>${spot}</strong><select id="start-${spot}"><option value="">--Select--</option>`;
+            active.forEach(p => html += `<option value="${p}">${p}</option>`);
+            html += `</select>`;
+            div.innerHTML = html;
+            container.appendChild(div);
+        });
+    }
+
+    function lockStartingLineup() {
+        let newField = {};
+        for(let pos of POSITIONS) {
+            let p = document.getElementById(`start-${pos}`).value;
+            if(!p) return alert(`Please assign a player to ${pos}`);
+            newField[pos] = { player: p, skill: state.roster[p][pos] };
+        }
+        state.onField = newField;
+        state.inning = 1;
+        state.log = ["Starting Lineup Locked."];
+        for(let p in state.benchCounts) state.benchCounts[p] = 0;
+        saveData();
+        updateGameUI();
+        switchTab('game');
+        document.querySelectorAll('.tab')[2].classList.add('active');
+        document.querySelectorAll('.tab')[1].classList.remove('active');
+    }
+
+    // --- TAB 3: GAME DAY LOGIC (Greedy Algorithm for JS) ---
+    function getBench() {
+        let fielded = Object.values(state.onField).map(d => d.player);
+        return getActivePlayers().filter(p => !fielded.includes(p));
+    }
+
+    function calculateOptimalLineup(pitcherId) {
+        let lineup = { 'P': { player: pitcherId, skill: state.roster[pitcherId]['P'] } };
+        let available = getActivePlayers().filter(p => p !== pitcherId);
+        
+        // Priority order for assigning positions (up the middle first)
+        let posOrder = ['C', 'SS', 'CF', '2B', '1B', '3B', 'LF', 'RF'];
+        
+        posOrder.forEach(pos => {
+            let bestP = null, bestScore = -99999;
+            available.forEach(p => {
+                let skill = state.roster[p][pos];
+                if(skill === 0) return; 
+                let sat = state.benchCounts[p] || 0;
+                let forced = sat >= state.maxBench;
+                // Score = Skill + Bench Bonus
+                let score = skill + (sat * 15) + (forced ? 5000 : 0);
+                if(score > bestScore) { bestScore = score; bestP = p; }
+            });
+            if(bestP) {
+                lineup[pos] = { player: bestP, skill: state.roster[bestP][pos] };
+                available = available.filter(p => p !== bestP);
+            }
+        });
+        return lineup;
+    }
+
+    function generateInstructions(oldMap, newMap) {
+        let inst = [];
+        let newP = newMap['P']?.player, oldP = oldMap['P']?.player;
+        if(newP && newP !== oldP) inst.push(`⚾ ${newP} enters to pitch.`);
+        
+        Object.keys(newMap).forEach(pos => {
+            if(pos === 'P') return;
+            let p = newMap[pos].player;
+            let oldPos = Object.keys(oldMap).find(k => oldMap[k].player === p);
+            if(oldPos && oldPos !== pos) inst.push(`🔄 ${p} moves: ${oldPos} -> ${pos}`);
+            else if(!oldPos) inst.push(`⬆️ ${p} enters to play ${pos}`);
+        });
+        Object.keys(oldMap).forEach(pos => {
+            let p = oldMap[pos].player;
+            let isPlaying = Object.values(newMap).find(d => d.player === p);
+            if(!isPlaying) inst.push(`⬇️ ${p} moves to bench.`);
+        });
+        return inst.length ? inst.join('\n') : "No defensive changes.";
+    }
+
+    // --- GAME UI UPDATES ---
+    function updateGameUI() {
+        document.getElementById('inning-display').innerText = state.inning;
+        
+        // Update Pitcher Dropdown
+        let pSelect = document.getElementById('pitcher-select');
+        let currentP = state.onField['P'] ? state.onField['P'].player : '';
+        pSelect.innerHTML = '';
+        getActivePlayers().forEach(p => {
+            let opt = document.createElement('option');
+            opt.value = p; opt.innerText = p;
+            if(p === currentP) opt.selected = true;
+            pSelect.appendChild(opt);
+        });
+
+        // Update Field Nodes
+        POSITIONS.forEach(pos => {
+            let node = document.getElementById(`pos-${pos}`);
+            if(state.onField[pos]) {
+                let pName = state.onField[pos].player;
+                if(state.selectedSubOut === pos) {
+                    node.innerHTML = `🔄 SUB OUT<br>${pName}`;
+                    node.className = "player-node selected";
+                } else {
+                    node.innerHTML = `${pos}<br>${pName}`;
+                    node.className = pos === 'P' ? "player-node pitcher" : "player-node";
+                }
+            } else {
+                node.innerHTML = `${pos}<br>--`;
+                node.className = "player-node empty";
+            }
+        });
+
+        // Update Bench
+        let benchDiv = document.getElementById('bench-list');
+        benchDiv.innerHTML = '';
+        getBench().forEach(p => {
+            let sat = state.benchCounts[p] || 0;
+            let btn = document.createElement('button');
+            if(state.selectedSubOut) {
+                btn.className = 'bench-btn btn-primary';
+                btn.innerText = `🔄 SUB IN: ${p}`;
+            } else {
+                btn.className = 'bench-btn btn-secondary';
+                btn.innerText = `${p} (Sat: ${sat})`;
+            }
+            btn.onclick = () => handleBenchClick(p);
+            benchDiv.appendChild(btn);
+        });
+
+        // Update History Tracking
+        let histDiv = document.getElementById('history-bench-list');
+        histDiv.innerHTML = '';
+        getActivePlayers().forEach(p => {
+            let sat = state.benchCounts[p] || 0;
+            if(sat > 0) histDiv.innerHTML += `<div style="padding: 5px; background: #ffebee; border: 1px solid #ffcdd2; margin: 2px 0; border-radius: 4px; color: #c62828; font-weight: bold;">${p} (Sat: ${sat})</div>`;
+        });
+
+        // Update Log
+        document.getElementById('game-log').innerText = state.log.slice().reverse().join('\n\n');
+    }
+
+    // --- GAME ACTIONS ---
+    function handleFieldClick(pos) {
+        if(!state.onField[pos]) return;
+        state.selectedSubOut = state.selectedSubOut === pos ? null : pos;
+        updateGameUI();
+    }
+
+    function handleBenchClick(playerIn) {
+        if(!state.selectedSubOut) return;
+        let pos = state.selectedSubOut;
+        let playerOut = state.onField[pos].player;
+        state.onField[pos] = { player: playerIn, skill: state.roster[playerIn][pos] };
+        state.log.push(`[Inning ${state.inning}] Manual Sub: ${playerIn} in for ${playerOut} at ${pos}`);
+        state.selectedSubOut = null;
+        saveData(); updateGameUI();
+    }
+
+    function executePitchingChange() {
+        if(!Object.keys(state.onField).length) return alert("Set starting lineup first.");
+        let newP = document.getElementById('pitcher-select').value;
+        let newLineup = calculateOptimalLineup(newP);
+        let moves = generateInstructions(state.onField, newLineup);
+        state.log.push(`[Inning ${state.inning}] Pitching Change:\n${moves}`);
+        state.onField = newLineup;
+        saveData(); updateGameUI();
+    }
+
+    function advanceInning() {
+        if(!Object.keys(state.onField).length) return;
+        getBench().forEach(p => state.benchCounts[p]++);
+        state.inning++;
+        let p = state.onField['P'].player;
+        let newLineup = calculateOptimalLineup(p);
+        let moves = generateInstructions(state.onField, newLineup);
+        state.log.push(`[Inning ${state.inning}] Auto-Rotated:\n${moves}`);
+        state.onField = newLineup;
+        saveData(); updateGameUI();
+    }
+
+    function endGame() {
+        if(!confirm("End game and save to history?")) return;
+        let date = new Date().toLocaleString();
+        let summary = `--- Game: ${date} ---\nTotal Innings: ${state.inning}\n\nFINAL BENCH COUNTS:\n`;
+        getActivePlayers().forEach(p => summary += ` • ${p}: ${state.benchCounts[p]}\n`);
+        summary += `\nPLAY-BY-PLAY LOG:\n${state.log.join('\n\n')}`;
+        
+        state.history.unshift({ name: date, summary: summary });
+        state.onField = {}; state.inning = 1; state.log = [];
+        for(let p in state.benchCounts) state.benchCounts[p] = 0;
+        
+        saveData(); updateGameUI(); renderHistoryList(); switchTab('history');
+        document.querySelectorAll('.tab')[3].classList.add('active');
+        document.querySelectorAll('.tab')[2].classList.remove('active');
+    }
+
+    // --- TAB 4: HISTORY ---
+    let selectedGameIdx = null;
+    function renderHistoryList() {
+        let list = document.getElementById('saved-games-list');
+        list.innerHTML = '';
+        state.history.forEach((g, idx) => {
+            let d = document.createElement('div');
+            d.className = 'history-item';
+            d.innerText = g.name;
+            d.onclick = () => {
+                selectedGameIdx = idx;
+                document.getElementById('history-detail').innerText = g.summary;
+                document.getElementById('btn-delete-game').style.display = 'block';
+            };
+            list.appendChild(d);
+        });
+    }
+
+    function deleteSelectedGame() {
+        if(selectedGameIdx === null) return;
+        if(confirm("Permanently delete this game?")) {
+            state.history.splice(selectedGameIdx, 1);
+            selectedGameIdx = null;
+            document.getElementById('history-detail').innerText = "Select a game to view details.";
+            document.getElementById('btn-delete-game').style.display = 'none';
+            saveData(); renderHistoryList();
+        }
+    }
+
+    // Start App
+    init();
+</script>
+</body>
+</html>
