@@ -28,11 +28,17 @@
         .grid-row { display: grid; grid-template-columns: 2fr 1fr repeat(9, 1fr); gap: 10px; margin-bottom: 10px; align-items: center; background: #fafafa; padding: 10px; border-radius: 8px; border: 1px solid #eee; }
         input[type="text"], select { padding: 10px; border: 1px solid #ccc; border-radius: 4px; width: 100%; box-sizing: border-box; font-size: 16px; }
         
-        /* Custom iPad Steppers */
-        .stepper-cell { display: flex; align-items: center; justify-content: center; gap: 8px; }
-        .stepper-btn { padding: 8px 12px; font-size: 18px; font-weight: bold; background: #e0e0e0; color: #333; border-radius: 6px; min-width: 40px; text-align: center; margin: 0; border: none; cursor: pointer; touch-action: manipulation; }
-        .stepper-btn:active { background: #ccc; }
-        .stepper-val { font-size: 18px; font-weight: bold; color: var(--primary); width: 20px; text-align: center; }
+        /* Custom Stat Dropdowns */
+        select.stat-dropdown { 
+            padding: 10px 4px; 
+            font-size: 16px; 
+            font-weight: bold; 
+            color: var(--primary); 
+            text-align: center; 
+            text-align-last: center; 
+            background-color: white; 
+            cursor: pointer;
+        }
 
         /* Game Day Layout */
         .action-bar { display: flex; justify-content: space-between; align-items: center; background: var(--light); padding: 15px; border-radius: 8px; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
@@ -70,7 +76,7 @@
     <div id="roster" class="content active">
         <h2>Manage Roster</h2>
         <div style="overflow-x: auto;">
-            <div style="min-width: 1400px;">
+            <div style="min-width: 1000px;">
                 <div class="grid-header">
                     <div style="text-align: left;">Player Name</div><div>Active</div>
                     <div>P</div><div>C</div><div>1B</div><div>2B</div><div>3B</div><div>SS</div><div>LF</div><div>CF</div><div>RF</div>
@@ -191,7 +197,7 @@
         event.target.classList.add('active');
     }
 
-    // --- TAB 1: ROSTER (Upgraded with Steppers) ---
+    // --- TAB 1: ROSTER (Upgraded with Dropdowns) ---
     function renderRoster() {
         const grid = document.getElementById('roster-grid');
         grid.innerHTML = '';
@@ -204,35 +210,19 @@
             let html = `<div><input type="text" value="${p}" onchange="updatePlayerName('${p}', this.value)"></div>
                         <div style="text-align: center;"><input type="checkbox" style="transform: scale(1.5);" ${d.Active ? 'checked' : ''} onchange="updatePlayerStat('${p}', 'Active', this.checked)"></div>`;
             
-            // Touch Steppers for Positions
+            // Native Dropdowns for Positions (0-9)
             POSITIONS.forEach(pos => {
-                html += `
-                <div class="stepper-cell">
-                    <button class="stepper-btn" onclick="adjustStat('${p}', '${pos}', -1, this)">-</button>
-                    <div class="stepper-val">${d[pos]}</div>
-                    <button class="stepper-btn" onclick="adjustStat('${p}', '${pos}', 1, this)">+</button>
-                </div>`;
+                html += `<div><select class="stat-dropdown" onchange="updatePlayerStat('${p}', '${pos}', parseInt(this.value)||0)">`;
+                for(let i = 0; i <= 9; i++) {
+                    let selected = d[pos] === i ? 'selected' : '';
+                    html += `<option value="${i}" ${selected}>${i}</option>`;
+                }
+                html += `</select></div>`;
             });
             
             row.innerHTML = html;
             grid.appendChild(row);
         });
-    }
-
-    function adjustStat(player, stat, delta, btnElem) {
-        let current = state.roster[player][stat];
-        let newVal = current + delta;
-        if(newVal < 0) newVal = 0;
-        if(newVal > 9) newVal = 9;
-        
-        if(current !== newVal) {
-            state.roster[player][stat] = newVal;
-            if(delta === -1) {
-                btnElem.nextElementSibling.innerText = newVal;
-            } else {
-                btnElem.previousElementSibling.innerText = newVal;
-            }
-        }
     }
 
     function addPlayerRow() {
